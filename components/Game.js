@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Image, TouchableOpacity, Text } from 'react-native';
 import { images } from '../images/images';
 
 
 export default function Game(props) {
 
-    // -------------------------------------------------------------------------
     const shuffle = (cards) => {
         const shuffledCards = [];
 
@@ -55,6 +54,7 @@ export default function Game(props) {
 
     const [ playingCards, setPlayingCards ] = useState(pickRandom(difficulty*3));
     const [ count, setCount] = useState(0)
+    const [ gameOver, setGameOver] = useState(false)
 
 
     // -------------------------------------------------------------------------
@@ -64,61 +64,79 @@ export default function Game(props) {
         const newPlayingCards = cards.map((card) => (Number(card.id) === Number(cardId)) ? 
             { id: card.id, pairId: card.pairId, image: card.image, hidden: false, disabled: "disabled", isTried: true, isSucceded: false} :
             card )
-
+        if (checkWin()) {
+            setGameOver(true)
+        }
         return newPlayingCards
     }
 
     // Turn back the missed ones
-    const turnBackMissed = () => {
+    const turnBackMissedAndTryACard = (cardId) => {
         const cards = [...playingCards]
         
         const newPlayingCards = cards.map((card) => card.isTried ? 
             { id: card.id, pairId: card.pairId, image: card.image, hidden: true, disabled: null, isTried: false, isSucceded: false} :
             card )
-        return newPlayingCards
+
+        return newPlayingCards.map((card) => (Number(card.id) === Number(cardId)) ? 
+        { id: card.id, pairId: card.pairId, image: card.image, hidden: false, disabled: "disabled", isTried: true, isSucceded: false} :
+        card )
+    }
+
+    // 
+    const validatePairAndTryACard = (cardId) => {
+        const cards = [...playingCards]
+        
+        const newPlayingCards = cards.map(card => (card.isTried) ? 
+        { id: card.id, pairId: card.pairId, image: card.image, hidden: false, disabled: "disabled", isTried: false, isSucceded: true} : 
+            card)
+
+        return newPlayingCards.map((card) => (Number(card.id) === Number(cardId)) ? 
+        { id: card.id, pairId: card.pairId, image: card.image, hidden: false, disabled: "disabled", isTried: true, isSucceded: false} :
+        card )
     }
 
     // Return true if the two returned cards form a pair
     const pairFound = () => {
         const cards = [...playingCards]
-        // Watch only the two card which are just tried (not those who are already won)
-        const returnedCards = cards.filter(card => (card.hidden && !card.isSucceded) ? null : card)
+        
+        const returnedCards = cards.filter(card => card.isTried ? card : null)
+        return (returnedCards[0].pairId === returnedCards[1].pairId) 
 
-        if (returnedCards[0].pairId === returnedCards[1].pairId) {
-            setPlayingCards(cards.map(card => (card.hidden && !card.isSucceded) ? 
-            { id: card.id, pairId: card.pairId, image: card.image, hidden: false, disabled: "disabled", isTried: false, isSucceded: true} : 
-                card))
-            return true
+    }
+
+    const checkWin = () => {
+         for (let i = 0; i < playingCards.length-1 ; i++) {
+            if (playingCards[i].hidden) {
+                return false
+            }
         }
-        return false
+        return true
     }
 
 
     // -------------------------------------------------------------------------
     const handlePressCard = (cardId) => {
 
-        let newPlayingCards = [...playingCards]
-
         if (count < 2) {
-            newPlayingCards = tryACard(cardId)
+            setPlayingCards(tryACard(cardId))
             setCount(count + 1)
         } else {
             if (pairFound()) {
-                setCount(0)
+                setPlayingCards(validatePairAndTryACard(cardId))
+                setCount(1)
             } else {
-                newPlayingCards = turnBackMissed()
-                setCount(0)
+                setPlayingCards(turnBackMissedAndTryACard(cardId))
+                setCount(1)
             }
         }
-
-        setPlayingCards(newPlayingCards)
     }
 
     
     // -------------------------------------------------------------------------
     return (
         <View style={{ flex: 1, justifyContent: 'space-around', alignItems: 'center', width: '100%' }}>
-
+            { !gameOver ?
             <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap'}}>
                 {playingCards.map(card => 
                 <TouchableOpacity 
@@ -141,6 +159,9 @@ export default function Game(props) {
                 </TouchableOpacity>
                 )}
             </View>
+            :
+            <Text style={styles.title}>BRAVO !</Text>
+            }
 
         </View>
     );
@@ -151,18 +172,15 @@ const styles = StyleSheet.create({
         fontSize: 27,
         textAlign: 'center'
     },
-    memoCard: {
-        width: '30%',
-        height: 80,
-        borderWidth: 2,
-        margin: 5,
-        borderRadius: 3,
-        borderColor: 'black',
-        resizeMode: 'contain'
-    },
     image: {
         width: '100%',
         height: '100%',
         resizeMode: 'contain'
+    },
+    memoCard: {
+        width: '30%',
+        height: 80,
+        margin: 5,
+        resizeMode: 'contain'        
     }
 });

@@ -8,6 +8,7 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
+my-release-key.keystore
 
 # macOS
 .DS_Store
