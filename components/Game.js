@@ -1,65 +1,144 @@
-import React from 'react';
-import { StyleSheet, View, Image } from 'react-native';
-
+import React, { useState } from 'react';
+import { StyleSheet, View, Image, TouchableOpacity } from 'react-native';
+import { images } from '../images/images';
 
 
 export default function Game(props) {
 
-    const difficulty = props.navigation.state.params.difficulty
+    // -------------------------------------------------------------------------
+    const shuffle = (cards) => {
+        const shuffledCards = [];
 
-    const images = {
-        image1: require('../images/card1.png'),
-        image2: require('../images/card2.png'),
-        image3: require('../images/card3.png'),
-        image4: require('../images/card4.png'),
-        image5: require('../images/card5.png'),
-        image6: require('../images/card6.png'),
-        image7: require('../images/card7.png'),
-        image8: require('../images/card8.png'),
-        image9: require('../images/card9.png'),
-        image10: require('../images/card10.png'),
-        image11: require('../images/card11.png'),
-        image12: require('../images/card12.png'),
-        image13: require('../images/card13.png'),
-        image14: require('../images/card14.png'),
-        image15: require('../images/card15.png'),
-    };
-
-    const shuffle = (imgs) => {
-        const shuffledImgs = [];
-
-        let keyIndice = 1
-        while (imgs.length > 0) {
-            const indice = Math.floor(Math.random() * imgs.length);
-            shuffledImgs.push({key: keyIndice, image: imgs[indice]});
-            keyIndice ++;
-            imgs.splice(indice,1)
+        while (cards.length > 0) { // While there is still something in array
+            const indice = Math.floor(Math.random() * cards.length); // Pick one
+            shuffledCards.push(cards[indice]); // Push in new Array
+            cards.splice(indice,1) // Remove it
         }
 
-        return shuffledImgs;
+        return shuffledCards;
     }
 
-    let imagesToUse = []
-    switch (difficulty) {
-        case 1: imagesToUse = [images.image1, images.image1, images.image2, images.image2, images.image3, images.image3]; break;
-        case 2: imagesToUse = [images.image4, images.image4, images.image5, images.image5, images.image6, images.image6, images.image7, images.image7, images.image9, images.image9, images.image10, images.image10]; break;
-        case 3: imagesToUse = [images.image4, images.image4, images.image5, images.image5, images.image6, images.image6, images.image7, images.image7, images.image9, images.image9, images.image10, images.image10, images.image11, images.image11, images.image12, images.image12, images.image14, images.image14]; break;
-        default: imagesToUse = [images.image1, images.image1, images.image2, images.image2, images.image3, images.image3]; break;
-    } 
+    const pickRandom = (numberOfPairs) => {
+        const cards = [];
+        const alreadyPickedIndex = [];
+        let id = 1;
+        let pairId = 1;
 
-    const imagesToDisplay = shuffle(imagesToUse)
+        for (let i=0 ; i < numberOfPairs; i++) {
+
+            let index = 0;
+            do {
+                index = Math.floor(Math.random() * 13);
+            }while (alreadyPickedIndex.includes(index))
+
+            alreadyPickedIndex.push(index)
+
+            cards.push({
+                id: id, pairId: pairId, image: images[index], hidden: true, disabled: null, isTried: false, isSucceded: false
+            });
+            cards.push({
+                id: id+1, pairId: pairId, image: images[index], hidden: true, disabled: null, isTried: false, isSucceded: false
+            });
+
+            id += 2;
+            pairId ++;
+        }
+
+        const shuffledCards = shuffle(cards);
+
+        return shuffledCards;
+    }
+
+    // -------------------------------------------------------------------------
+    const difficulty = props.navigation.state.params.difficulty;
+    const cardBack = require('../images/cardBack.png')
+
+    const [ playingCards, setPlayingCards ] = useState(pickRandom(difficulty*3));
+    const [ count, setCount] = useState(0)
+
+
+    // -------------------------------------------------------------------------
+    // Turn the clicked card and disabled it
+    const tryACard = (cardId) => {
+        const cards = [...playingCards]
+        const newPlayingCards = cards.map((card) => (Number(card.id) === Number(cardId)) ? 
+            { id: card.id, pairId: card.pairId, image: card.image, hidden: false, disabled: "disabled", isTried: true, isSucceded: false} :
+            card )
+
+        return newPlayingCards
+    }
+
+    // Turn back the missed ones
+    const turnBackMissed = () => {
+        const cards = [...playingCards]
+        
+        const newPlayingCards = cards.map((card) => card.isTried ? 
+            { id: card.id, pairId: card.pairId, image: card.image, hidden: true, disabled: null, isTried: false, isSucceded: false} :
+            card )
+        return newPlayingCards
+    }
+
+    // Return true if the two returned cards form a pair
+    const pairFound = () => {
+        const cards = [...playingCards]
+        // Watch only the two card which are just tried (not those who are already won)
+        const returnedCards = cards.filter(card => (card.hidden && !card.isSucceded) ? null : card)
+
+        if (returnedCards[0].pairId === returnedCards[1].pairId) {
+            setPlayingCards(cards.map(card => (card.hidden && !card.isSucceded) ? 
+            { id: card.id, pairId: card.pairId, image: card.image, hidden: false, disabled: "disabled", isTried: false, isSucceded: true} : 
+                card))
+            return true
+        }
+        return false
+    }
+
+
+    // -------------------------------------------------------------------------
+    const handlePressCard = (cardId) => {
+
+        let newPlayingCards = [...playingCards]
+
+        if (count < 2) {
+            newPlayingCards = tryACard(cardId)
+            setCount(count + 1)
+        } else {
+            if (pairFound()) {
+                setCount(0)
+            } else {
+                newPlayingCards = turnBackMissed()
+                setCount(0)
+            }
+        }
+
+        setPlayingCards(newPlayingCards)
+    }
 
     
+    // -------------------------------------------------------------------------
     return (
         <View style={{ flex: 1, justifyContent: 'space-around', alignItems: 'center', width: '100%' }}>
 
             <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap'}}>
-                {imagesToDisplay.map(obj => 
-                <Image
-                    key={obj.key}
-                    style={styles.memoCard}
-                    source={obj.image}
-                />
+                {playingCards.map(card => 
+                <TouchableOpacity 
+                    key={card.id} 
+                    style={styles.memoCard} 
+                    onPress={() => handlePressCard(card.id)}
+                >
+                    {card.hidden ?
+                    <Image
+                        style={styles.image} 
+                        source={cardBack}
+                    />
+                    :
+                    <Image
+                        style={styles.image} 
+                        source={card.image}
+                        disabled={card.disabled}
+                    />
+                    }
+                </TouchableOpacity>
                 )}
             </View>
 
@@ -79,6 +158,11 @@ const styles = StyleSheet.create({
         margin: 5,
         borderRadius: 3,
         borderColor: 'black',
+        resizeMode: 'contain'
+    },
+    image: {
+        width: '100%',
+        height: '100%',
         resizeMode: 'contain'
     }
 });
